@@ -14,6 +14,7 @@ def plot_histogram_from_csv(file_path, column_index=4, bins=1000, max_value=50):
     - max_value (int or float): Maximum value threshold; values above this will be excluded.
     """
     # Load the CSV file into a DataFrame
+
     try:
         data = pd.read_csv(file_path)
     except Exception as e:
@@ -27,10 +28,12 @@ def plot_histogram_from_csv(file_path, column_index=4, bins=1000, max_value=50):
     
     # Extract the specified column's values and label
     column_data = data.iloc[:, column_index]
+    column_frame = data.iloc[:, 0]
     column_label = data.columns[column_index]
     
     # Filter out values above the specified max_value
-    filtered_data = column_data[column_data <= max_value]
+    filtered_data = column_data[column_frame >= 7500]
+    filtered_data = filtered_data[filtered_data <= max_value]
     
     # Plot the histogram
     plt.figure(figsize=(10, 6))
@@ -44,7 +47,92 @@ def plot_histogram_from_csv(file_path, column_index=4, bins=1000, max_value=50):
     plt.show()
 
 # Example usage:
-plot_histogram_from_csv('file.csv', column_index=4, bins=50, max_value=50)
+file_path = "/Users/thomasborsoni/Desktop/Post-doc/Projet fourmis/Programmes/Data management/file.csv"
+plot_histogram_from_csv(file_path, column_index=4, bins=50, max_value=50)
+
+
+#%%
+
+def plot_histogram_velocities(file_path, bins=1000, max_value=50):
+    """
+    Reads a CSV file, extracts the specified column (default is the 5th column),
+    filters out values above the specified max_value, and plots a histogram of the remaining values.
+    
+    Parameters:
+    - file_path (str): Path to the .csv file.
+    - column_index (int): Index of the column to plot (0-based, so 4 is the 5th column).
+    - bins (int): Number of bins for the histogram (default is 50).
+    - max_value (int or float): Maximum value threshold; values above this will be excluded.
+    """
+    # Load the CSV file into a DataFrame
+
+    try:
+        data = pd.read_csv(file_path)
+    except Exception as e:
+        print(f"Error loading CSV file: {e}")
+        return
+    
+    # Check if the file has enough columns
+    if data.shape[1] <= column_index:
+        print("Error: The specified column index exceeds the number of columns in the file.")
+        return
+    
+    # Extract the specified column's values and label
+    positions_x = data.iloc[:, 2]
+    positions_y = data.iloc[:, 3]
+    column_frame = data.iloc[:, 0]
+    column_label = data.columns[4]
+    
+    # Filter out values before 5 minutes
+    filtered_x = positions_x[column_frame >= 7500]
+    filtered_y = positions_y[column_frame >= 7500]
+    
+    
+    
+    # Plot the histogram
+    plt.figure(figsize=(10, 6))
+    plt.hist(filtered_data.dropna(), bins=bins, edgecolor='black')
+    plt.title(f'Histogram of {column_label} (Values ≤ {max_value})')
+    plt.xlabel(column_label)
+    plt.ylabel('Occurences')
+    #plt.yscale('log')
+    plt.grid(axis='y', alpha=0.75)
+    plt.savefig(f'histogram_{column_label}_'  + str(bins) +'_bins.pdf')
+    plt.show()
+
+# Example usage:
+file_path = "/Users/thomasborsoni/Desktop/Post-doc/Projet fourmis/Programmes/Data management/file.csv"
+plot_histogram_from_csv(file_path, bins=50, max_value=50)
+
+#%%
+
+data = pd.read_csv(file_path)
+
+# Make sure your data is sorted by time for each agent
+data = data.sort_values(by=[data.columns[1], data.columns[0]])
+
+# Calculate the differences in position and time
+data['dx'] = data.groupby(data.columns[1])[data.columns[2]].diff()
+data['dy'] = data.groupby(data.columns[1])[data.columns[3]].diff()
+data['dt'] = data.groupby(data.columns[1])[data.columns[0]].diff()
+
+# Calculate the velocity components (vx and vy)
+data['vx'] = data['dx'] / data['dt']
+data['vy'] = data['dy'] / data['dt']
+
+# Calculate the total speed (magnitude of the velocity vector)
+data['speed'] = np.sqrt(data['vx']**2 + data['vy']**2)
+
+
+# Print the resulting DataFrame with velocity information
+plt.figure(figsize=(10, 6))
+plt.hist(np.sqrt(data['vx']**2 + data['vy']**2).dropna(), bins=500, edgecolor='black')
+#plt.yscale('log')
+plt.grid(axis='y', alpha=0.75)
+plt.show()
+
+
+#%%
 
 def count_values_below_threshold(file_path, column_index=4, threshold=1):
     """
@@ -84,8 +172,10 @@ def count_values_below_threshold(file_path, column_index=4, threshold=1):
 # Exemple d'utilisation :
 count_values_below_threshold('file.csv', threshold=.5)
 
+#%%
 
-def analyze_idle_time(file_path, id_column_index=1, status_column_index=4, threshold=1, bins=10):
+
+def analyze_idle_time(file_path, id_column_index=1, status_column_index=4, threshold=1, bins=100):
     """
     Analyse le temps d'attente à l'arrêt pour chaque agent en comptant le nombre d'occurrences
     où le statut est inférieur au seuil donné. Affiche le temps d'attente moyen et un histogramme
@@ -121,8 +211,8 @@ def analyze_idle_time(file_path, id_column_index=1, status_column_index=4, thres
     idle_counts = idle_data.groupby(agent_ids).size()
     
     # Eliminer les arrets trop longs
-    idle_counts =  idle_counts[ idle_counts > 100]    
-    idle_counts =  idle_counts[ idle_counts < 1000]
+    #idle_counts =  idle_counts[ idle_counts > 100]    
+   # idle_counts =  idle_counts[ idle_counts < 1000]
 
     
     # Calculer le temps d'attente moyen à l'arrêt
@@ -140,13 +230,17 @@ def analyze_idle_time(file_path, id_column_index=1, status_column_index=4, thres
     plt.ylabel("Nombre d'agents")
     plt.grid(axis='y', alpha=0.75)
     
-    X = np.linspace(100,999,1000)
-    plt.plot(X, 200 * np.exp(-X / 200.67))
+  #  X = np.linspace(100,999,1000)
+  #  plt.plot(X, 200 * np.exp(-X / 200.67))
     
     plt.show()
 
+
+file_path = "/Users/thomasborsoni/Desktop/Post-doc/Projet fourmis/Programmes/Data management/file.csv"
 # Exemple d'utilisation :
-analyze_idle_time('file.csv')
+analyze_idle_time(file_path)
+
+#%%
 
 
 def analyze_simultaneous_agents(file_path, frame_column_index=0, agent_id_column_index=1, bins=30):

@@ -5,6 +5,8 @@ from matplotlib.animation import FuncAnimation
 
 plt.ion()
 
+#### lancer %matplotlib qt dans le terminal
+
 file_path = "/Users/thomasborsoni/Desktop/Post-doc/Projet fourmis/Programmes/Data management/file.csv"
 frame_number_init = 100000
 
@@ -27,7 +29,7 @@ ax.set_xlim(data[data.columns[2]].min() - 1, data[data.columns[2]].max() + 1)
 ax.set_ylim(data[data.columns[3]].min() - 1, data[data.columns[3]].max() + 1)
 ax.set_xlabel("X Position")
 ax.set_ylabel("Y Position")
-ax.set_title("Agent positions over time")
+ax.set_title("Ants")
 
 # Function to update scatter plot at each frame
 def update(frame):
@@ -42,6 +44,7 @@ def update(frame):
     # Update scatter plot data
     scat.set_offsets(np.c_[x, y])
     scat.set_color(color)
+    
     return scat,
 
 # Create the animation
