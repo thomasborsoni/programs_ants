@@ -13,8 +13,9 @@ from utils import (is_in_visual_field,
                    update_orientation,
                    out_of_bridge_to_other_side,
                    new_orientations,
-                   bounce)
-
+                   bounce2D, bounceAngle,
+                   draw_new_orientations)
+import gc
 import os
 
 # Set the path to the location of ffmpeg
@@ -32,13 +33,13 @@ length_x = 100
 length_y = 20
 avg_vel = 20
 
-Tfinal = 10  # in seconds
+Tfinal = 100  # in seconds
 fps = 25
 
 ############## Initialize
 
 # Generate random x and y coordinates within the specified bounds
-x_positions = rd.rand(num_agents) * length_x
+x_positions = rd.rand(num_agents) * length_x 
 y_positions = rd.rand(num_agents) * length_y
 
 pos_vect = np.empty((num_agents, 2))
@@ -46,7 +47,7 @@ pos_vect[:, 0] = x_positions
 pos_vect[:, 1] = y_positions
     
 # Generate random initial orientations
-orientations = rd.rand(num_agents) * 2 * np.pi
+orientations = np.ceil(rd.rand(num_agents) * 2 -1) * np.pi
 orientations2D = np.empty((num_agents, 2))
 orientations2D[:, 0] = np.cos(orientations)
 orientations2D[:, 1] = np.sin(orientations)
@@ -83,17 +84,26 @@ arrows = []
 
     
 # Function to update scatter plot at each frame
-def update(frame, pos_vect, orientations2D, frames_since_stop, stop_frames_left):
+def update(frame, pos_vect, orientations, frames_since_stop, stop_frames_left):
+    
+    # Clear the memory every 15 frames
+    if frame % 10 == 0:
+        gc.collect()
+        
     # Clear previous circles from the plot
     global circles, arrows
     # Clear previous circles and arrows from the plot
-    for circle in circles:
-        circle.remove()
-    for arrow in arrows:
-        arrow.remove()
+    while circles:
+        circles.pop().remove()
+    while arrows:
+        arrows.pop().remove()
     circles = []
     arrows = []
-
+    
+    orientations2D = np.empty((num_agents, 2))
+    orientations2D[:, 0] = np.cos(orientations)
+    orientations2D[:, 1] = np.sin(orientations)
+    
     # Update positions based on velocity and orientation execept for the ones that are stopped
     pos_vect[stop_frames_left==0] += dt * avg_vel * orientations2D[stop_frames_left==0]
     
@@ -101,18 +111,20 @@ def update(frame, pos_vect, orientations2D, frames_since_stop, stop_frames_left)
     out_of_bridge_to_other_side(pos_vect, length_x)
 
     # Use bouncing bc in y
-    orientations2D = bounce(pos_vect, orientations2D)
+    orientations = bounceAngle(pos_vect, orientations)
 
-    
-    
     # Check for possible discussions and updates
     frames_since_stop, stop_frames_left, restart_indices = waiting_and_restart_step(pos_vect, 
                                                                                     frames_since_stop, stop_frames_left,
                                                                                     frames_since_stop_min, lbda, distance_collision)
-    
-    # Renew orientation for the restarting agents
-    orientations2D[restart_indices] = new_orientations(len(restart_indices))
-    
+    # Update orientations for re-starting agents
+    for ID in restart_indices :
+        
+        orientations[ID] = rd.rand()*2*np.pi#draw_new_orientations(ID, pos_vect, orientations)
+        
+    orientations2D[:, 0] = np.cos(orientations)
+    orientations2D[:, 1] = np.sin(orientations)
+
     # Resolve possible collisions
     pos_vect = resolve_collisions_with_inbounds(pos_vect, radius)
     
@@ -131,10 +143,12 @@ def update(frame, pos_vect, orientations2D, frames_since_stop, stop_frames_left)
     
     return circles + arrows
 
+
+
 # Run the animation with blit=False
 ani = FuncAnimation(fig, update, frames=time_steps,
-                    fargs=(pos_vect, orientations2D, frames_since_stop, stop_frames_left,), 
-                    interval=40, blit=True, repeat=False)
-ani.save("agent_simulation_1.mp4", writer=FFMpegWriter(fps=25))
+                    fargs=(pos_vect, orientations, frames_since_stop, stop_frames_left,), 
+                    interval=40, blit=False, repeat=False)
+#ani.save("agent_simulation_1.mp4", writer=FFMpegWriter(fps=25))
 # Show the animation
 plt.show()
