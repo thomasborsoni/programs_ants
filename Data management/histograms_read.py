@@ -5,7 +5,7 @@ from matplotlib.ticker import PercentFormatter
 
 plt.ion()
 
-def analyze_variance_histogram(file_path, agent_id_column, value_column, min_value=3, bins=50):
+def analyze_ID_jumps_histogram(file_path, agent_id_column, value_column, min_value=3, bins=50):
     """
     Analyzes variance divided by the squared mean for each agent and plots a histogram.
     """
@@ -47,7 +47,7 @@ def analyze_variance_histogram(file_path, agent_id_column, value_column, min_val
 
 # Example usage:
 file_path = "/Users/thomasborsoni/Desktop/Post-doc/Projet fourmis/Programmes/Data management/file.csv"
-analyze_variance_histogram(
+analyze_ID_jumps_histogram(
     file_path, 
     agent_id_column='id',  # Grouping column
     value_column="step",    # Target column for analysis
