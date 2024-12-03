@@ -5,6 +5,60 @@ from matplotlib.ticker import PercentFormatter
 
 plt.ion()
 
+def analyze_ID_exchange_histogram(file_path, agent_id_column, bins=50):
+    """
+    Analyzes the ratio of "vx >= 0" to "vx is not NaN" for each agent and plots a histogram.
+    """
+    # Load the CSV file into a DataFrame
+    try:
+        data = pd.read_csv(file_path)
+    except Exception as e:
+        print(f"Error loading CSV file: {e}")
+        return
+    
+    # Calculate vx difference for each agent
+    data['vx_diff'] = data.groupby(agent_id_column)[data.columns[2]].diff()
+    
+    # Group by agent and calculate the required metrics
+    grouped = data.groupby(agent_id_column)
+    
+    # Calculate the number of occurrences for each event
+    num_vx_ge_0 = grouped['vx_diff'].apply(lambda x: (x >= 0).sum())  # vx >= 0
+    num_vx_not_nan = grouped['vx_diff'].apply(lambda x: x.notna().sum())  # vx is not NaN
+    
+
+    
+    # Compute the ratio for each agent
+    ratios = num_vx_ge_0 / num_vx_not_nan
+    
+    # If we do not distinguish between the groups
+    ratios = ratios.apply(lambda r: r if r <= 0.5 else 1 - r)
+    
+    print(len(ratios[ratios > .02]))
+    
+    # Plot histogram of the ratios
+    plt.figure(figsize=(10, 6))
+    plt.hist(ratios, bins=bins, edgecolor='black')
+    plt.gca().xaxis.set_major_formatter(PercentFormatter(xmax=1.0))
+    plt.title('Histogram of time spent in the \'wrong\' direction')
+    plt.xlabel('Time spent in the \'wrong\' direction')
+    plt.ylabel('Number of agents')
+    plt.yscale('log')
+    plt.grid(axis='y', alpha=0.75)
+    plt.show()  # Ensure plot is displayed
+
+# Example usage:
+file_path = "/Users/thomasborsoni/Desktop/Post-doc/Projet fourmis/Programmes/Data management/file.csv"
+analyze_ID_exchange_histogram(
+    file_path, 
+    agent_id_column='id',  # Grouping column
+    bins=90               # Number of bins for the histogram
+)
+
+
+
+#%%
+
 def analyze_ID_jumps_histogram(file_path, agent_id_column, value_column, min_value=3, bins=50):
     """
     Analyzes variance divided by the squared mean for each agent and plots a histogram.
