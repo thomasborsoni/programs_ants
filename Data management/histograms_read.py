@@ -1,6 +1,193 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.ticker import PercentFormatter
+
+plt.ion()
+
+def analyze_variance_histogram(file_path, agent_id_column, value_column, min_value=3, bins=50):
+    """
+    Analyzes variance divided by the squared mean for each agent and plots a histogram.
+    """
+    # Load the CSV file into a DataFrame
+    try:
+        data = pd.read_csv(file_path)
+        # Uncomment below to test with a smaller dataset
+        # data = data.head(100000)  
+    except Exception as e:
+        print(f"Error loading CSV file: {e}")
+        return
+    
+    # Group by agent and calculate peak-to-peak and number of frames
+    grouped = data.groupby(agent_id_column)
+
+    # Peak-to-peak value for each agent
+    peak_to_peak = grouped[value_column].max() - grouped[value_column].min() + 1
+    
+    # Number of unique frames ('step' values) for each agent
+    nb_frames = grouped[value_column].nunique()
+
+    nb_jump_frames = peak_to_peak - nb_frames
+    
+    
+    # Plot histogram of Peak-to-Peak / Number of Frames
+    plt.figure(figsize=(10, 6))
+   # plt.hist(1 - (nb_frames / peak_to_peak)[nb_frames!=peak_to_peak], bins=bins, edgecolor='black')
+    #plt.hist(1 - nb_frames / peak_to_peak, bins=bins, edgecolor='black')
+    plt.hist(nb_jump_frames, bins=bins, edgecolor='black')
+   # plt.plot(np.arange(20),7300*np.exp(-.5*np.arange(20)))
+   # plt.xticks(np.arange(20))
+    plt.gca().xaxis.set_major_formatter(PercentFormatter(xmax=1.))
+    plt.title('Histogram of ID jump frames number')
+    plt.xlabel('ID jump frames number')
+    plt.ylabel('Occurrences')
+   # plt.yscale('log')
+    plt.grid(axis='y', alpha=0.75)
+    plt.show()  # Ensure plot is displayed
+
+# Example usage:
+file_path = "/Users/thomasborsoni/Desktop/Post-doc/Projet fourmis/Programmes/Data management/file.csv"
+analyze_variance_histogram(
+    file_path, 
+    agent_id_column='id',  # Grouping column
+    value_column="step",    # Target column for analysis
+    min_value=1.,            # Minimum threshold for filtering
+    bins=200                  # Number of bins for the histogram
+)
+
+
+#%%
+
+
+def analyze_variance_histogram(file_path, agent_id_column, value_column, min_value=3, bins=50):
+    """
+    Analyzes variance divided by the squared mean for each agent and plots a histogram.
+    """
+    # Load the CSV file into a DataFrame
+    try:
+        data = pd.read_csv(file_path)
+       # data = data.head(100000)  
+    except Exception as e:
+        print(f"Error loading CSV file: {e}")
+        return
+    
+    # Filter out values less than the specified minimum
+    data[value_column] = pd.to_numeric(data[value_column], errors='coerce')
+    filtered_data = data[data[value_column] >= min_value]
+    
+    # Group by agent and calculate variance and mean
+    grouped = filtered_data.groupby(agent_id_column)[value_column]
+    variances = grouped.var()
+    means = grouped.mean()
+    
+    # Calculate variance divided by mean squared
+    variance_over_mean_sq = variances / (means ** 2)
+    
+    # Filter data
+    variance_over_mean_sq = variance_over_mean_sq.dropna()
+    variance_over_mean_sq = variance_over_mean_sq[variance_over_mean_sq<= 2.]
+    
+    sigma_over_mean = np.sqrt(variance_over_mean_sq)
+    
+    print(sigma_over_mean.mean())
+    print(np.sqrt(sigma_over_mean.var()))
+    
+    # Plot histogram of Variance/Mean^2
+    plt.figure(figsize=(10, 6))
+    plt.hist(sigma_over_mean, bins=bins, edgecolor='black')
+  #  plt.hist(means, bins=bins, edgecolor='black')
+    plt.title('Histogram of $\\sigma / \\mathbb{E}(V)$')
+    plt.xlabel('$\\sigma / \\mathbb{E}(V)$')
+    plt.ylabel('Occurences')
+    plt.grid(axis='y', alpha=0.75)
+    plt.show()  # Ensure plot is displayed
+    
+
+# Example usage:
+file_path = "/Users/thomasborsoni/Desktop/Post-doc/Projet fourmis/Programmes/Data management/file.csv"
+analyze_variance_histogram(
+    file_path, 
+    agent_id_column="id", 
+    value_column="v_mag", 
+    min_value=1., 
+    bins=90
+)
+
+
+#%%
+
+def analyze_variance_histogram(file_path, agent_id_column, value_column, min_value=3, bins=50):
+    """
+    Analyzes variance divided by the squared mean ("Espérance") for each agent and plots a histogram.
+
+    Parameters:
+    - file_path (str): Path to the .csv file.
+    - agent_id_column (int or str): Column index or name containing the agent identifiers.
+    - value_column (int or str): Column index or name containing the values for variance calculation.
+    - min_value (float): Minimum value of `value_column` to consider (default is 3).
+    - bins (int): Number of bins for the histogram (default is 50).
+    - output_path (str): Path to save the output CSV with analysis results (default is "agent_analysis.csv").
+
+    Returns:
+    - analysis_df (pd.DataFrame): A DataFrame containing each agent, variance, mean, and variance/mean^2.
+    """
+    # Load the CSV file into a DataFrame
+    try:
+        data = pd.read_csv(file_path)
+        data = data.head(10000)  # Process only the first 10,000 rows for testing
+
+    except Exception as e:
+        print(f"Error loading CSV file: {e}")
+        return
+    
+    # Check if the file has enough columns if indices are used
+    if isinstance(agent_id_column, int) or isinstance(value_column, int):
+        if data.shape[1] <= max(agent_id_column, value_column):
+            print("Error: One or more specified column indices exceed the number of columns in the file.")
+            return
+    
+    # Extract relevant columns
+    agent_data = data.iloc[:, agent_id_column] if isinstance(agent_id_column, int) else data[agent_id_column]
+    value_data = data.iloc[:, value_column] if isinstance(value_column, int) else data[value_column]
+    
+    # Filter out values less than the specified minimum
+    filtered_data = data[value_data >= min_value]
+    
+    # Group by agent and calculate variance and mean
+    grouped = filtered_data.groupby(agent_data)[value_data]
+    variances = grouped.var()
+    means = grouped.mean()
+    
+    # Calculate variance divided by mean squared
+    variance_over_mean_sq = variances / (means ** 2)
+    
+    
+    # Plot histogram of Variance/Mean^2
+    plt.figure(figsize=(10, 6))
+    plt.hist(variance_over_mean_sq.dropna(), bins=bins, edgecolor='black')
+    plt.title('Histogram of Variance / Mean^2')
+    plt.xlabel('Variance / Mean^2')
+    plt.ylabel('Frequency')
+    plt.grid(axis='y', alpha=0.75)
+   # plt.savefig(f'histogram_variance_over_mean_squared_{bins}_bins.pdf')
+    plt.show()
+    
+    return 
+
+# Example usage:
+file_path = "/Users/thomasborsoni/Desktop/Post-doc/Projet fourmis/Programmes/Data management/file.csv"
+analyze_variance_histogram(
+    file_path, 
+    agent_id_column="id", 
+    value_column="v_mag", 
+    min_value=3, 
+    bins=50
+)
+
+
+
+
+#%%
 
 def plot_histogram_from_csv(file_path, column_index=4, bins=1000, max_value=50):
     """
