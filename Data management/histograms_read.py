@@ -5,6 +5,169 @@ from matplotlib.ticker import PercentFormatter
 
 plt.ion()
 
+
+
+def plot_lifetime_heatmap(file_path, id_column, step_column, position_x_column, position_y_column, 
+                          epsilon_x_range, epsilon_y_range):
+    """
+    Plots a heat map of the average lifetime of agents as a function of epsilon_x and epsilon_y.
+    
+    Parameters:
+    - file_path (str): Path to the CSV file.
+    - id_column (str): Column name for IDs.
+    - step_column (str): Column name for steps.
+    - position_x_column (str): Column name for x positions.
+    - position_y_column (str): Column name for y positions.
+    - epsilon_x_range (list): Range of epsilon_x values to evaluate.
+    - epsilon_y_range (list): Range of epsilon_y values to evaluate.
+    """
+    # Load the data
+    data = pd.read_csv(file_path)
+    
+    # Calculate global min and max for position_x and position_y
+    m_x, M_x = data[position_x_column].min(), data[position_x_column].max()
+    m_y, M_y = data[position_y_column].min(), data[position_y_column].max()
+    
+    # Prepare results grid
+    heatmap = np.zeros((len(epsilon_x_range), len(epsilon_y_range)))
+    
+    # Group data by ID
+    grouped = data.groupby(id_column)
+    first_steps = grouped.first().reset_index()
+    last_steps = grouped.last().reset_index()
+    
+    # Iterate over epsilon_x and epsilon_y
+    for i, epsilon_x in enumerate(epsilon_x_range):
+        for j, epsilon_y in enumerate(epsilon_y_range):
+            # Define bounds
+            x_min_bound = m_x + epsilon_x
+            x_max_bound = M_x - epsilon_x
+            y_min_bound = m_y + epsilon_y
+            y_max_bound = M_y - epsilon_y
+            
+            # Check bounds for first and last steps
+            def is_within_bounds(row):
+                return (
+                    x_min_bound <= row[position_x_column] <= x_max_bound and
+                    y_min_bound <= row[position_y_column] <= y_max_bound
+                )
+            
+            first_condition = first_steps.apply(is_within_bounds, axis=1)
+            last_condition = last_steps.apply(is_within_bounds, axis=1)
+            
+            # Filter IDs satisfying both conditions
+            valid_ids = first_steps[id_column][first_condition | last_condition]
+            valid_first = first_steps[first_steps[id_column].isin(valid_ids)]
+            valid_last = last_steps[last_steps[id_column].isin(valid_ids)]
+            
+            # Calculate average lifetime
+            if not valid_ids.empty:
+                lifetimes = valid_last[step_column].values - valid_first[step_column].values
+                heatmap[i, j] = np.mean(lifetimes[lifetimes <= 400])
+            else:
+                heatmap[i, j] = np.nan  # No valid agents
+    
+    # Plot the heatmap
+    plt.figure(figsize=(10, 8))
+    plt.imshow(heatmap, extent=[epsilon_y_range[0], epsilon_y_range[-1], 
+                                epsilon_x_range[0], epsilon_x_range[-1]], origin='lower', 
+               aspect='auto', cmap='viridis')
+    plt.colorbar(label='Average Lifetime')
+    plt.title('Average Lifetime as a Function of $\\epsilon_x$ and $\\epsilon_y$')
+    plt.xlabel('$\\epsilon_y$')
+    plt.ylabel('$\\epsilon_x$')
+    plt.show()
+
+# Example usage
+file_path = "/Users/thomasborsoni/Desktop/Post-doc/Projet fourmis/Programmes/Data management/file.csv"
+epsilon_x_range = np.linspace(1.5, 5, 5)  # Example range for epsilon_x
+epsilon_y_range = np.linspace(2, 8, 12)  # Example range for epsilon_y
+
+plot_lifetime_heatmap(
+    file_path=file_path,
+    id_column='id',
+    step_column='step',
+    position_x_column='position_x',
+    position_y_column='position_y',
+    epsilon_x_range=epsilon_x_range,
+    epsilon_y_range=epsilon_y_range
+)
+
+
+
+#%%%
+
+def count_ids_within_bounds(file_path, id_column, step_column, position_x_column, position_y_column, epsilon_x, epsilon_y):
+    """
+    Counts the number of 'id' values such that:
+    - For the first and last step of their existence:
+      - position_x is between (m_x + epsilon_x) and (M_x - epsilon_x)
+      - position_y is between (m_y + epsilon_y) and (M_y - epsilon_y)
+      
+    Parameters:
+    - file_path (str): Path to the CSV file.
+    - id_column (str): Column name for IDs.
+    - step_column (str): Column name for steps.
+    - position_x_column (str): Column name for x positions.
+    - position_y_column (str): Column name for y positions.
+    - epsilon_x (float): Margin parameter for x positions.
+    - epsilon_y (float): Margin parameter for y positions.
+    
+    Returns:
+    - int: Number of IDs satisfying the conditions.
+    """
+    # Load the data
+    data = pd.read_csv(file_path)
+    
+    # Calculate global min and max for position_x and position_y
+    m_x, M_x = data[position_x_column].min(), data[position_x_column].max()
+    m_y, M_y = data[position_y_column].min(), data[position_y_column].max()
+    
+    # Define bounds
+    x_min_bound = m_x + epsilon_x
+    x_max_bound = M_x - epsilon_x
+    y_min_bound = m_y + epsilon_y
+    y_max_bound = M_y - epsilon_y
+    
+    # Group by ID and find first and last steps
+    grouped = data.groupby(id_column)
+    first_steps = grouped.first().reset_index()  # First rows for each ID
+    last_steps = grouped.last().reset_index()    # Last rows for each ID
+    
+    # Check conditions for first and last steps
+    def is_within_bounds(row):
+        return (
+            x_min_bound <= row[position_x_column] <= x_max_bound and
+            y_min_bound <= row[position_y_column] <= y_max_bound
+        )
+    
+    first_condition = first_steps.apply(is_within_bounds, axis=1)
+    last_condition = last_steps.apply(is_within_bounds, axis=1)
+    
+    # IDs satisfying both conditions
+    appear_or_disappear = first_steps[id_column][first_condition | last_condition]
+
+    return len(appear_or_disappear)
+
+# Example usage:
+file_path = "/Users/thomasborsoni/Desktop/Post-doc/Projet fourmis/Programmes/Data management/file.csv"
+result = count_ids_within_bounds(
+    file_path=file_path,
+    id_column='id',
+    step_column='step',
+    position_x_column='position_x',
+    position_y_column='position_y',
+    epsilon_x=2,  # Example epsilon for x
+    epsilon_y=2   # Example epsilon for y
+)
+
+print(f"Number of IDs that appear or disappear: {result}")
+
+
+
+
+#%%
+
 def analyze_ID_exchange_histogram(file_path, agent_id_column, bins=50):
     """
     Analyzes the ratio of "vx >= 0" to "vx is not NaN" for each agent and plots a histogram.
